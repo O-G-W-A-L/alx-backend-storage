@@ -7,6 +7,7 @@ from uuid import uuid4
 from typing import Union, Optional, Callable
 from functools import wraps
 
+
 def count_calls(method: Callable) -> Callable:
     '''tracks the number of calls made to a method in a cache class'''
     key = method.__qualname__
@@ -34,6 +35,7 @@ def call_history(method: Callable) -> Callable:
         return result
     return wrapper
 
+
 def replay(method: Callable) -> Callable:
     '''replay the history of a particular func'''
     m_key = method.__qualname__
@@ -50,10 +52,10 @@ def replay(method: Callable) -> Callable:
         value = v.decode("utf-8")
         print("{}(*{}) -> {}".format(m_key, key, value))
 
+
 class Cache:
     """Represnts an object for storing data iin a Redis data storage
     """
-
     def __init__(self) -> None:
         """Intialization for cache"""
         self._redis = redis.Redis()
