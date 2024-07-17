@@ -36,7 +36,11 @@ class Cache:
         self._redis.set(data_key, data)
         return data_key
 
-    def get(self, key: str, fn: Callable = None) -> Union[str, bytes, int, float]:
+    def get(
+            self,
+            key: str,
+            fn: Callable = None,
+            ) -> Union[str, bytes, int, float]:
         '''Retrieves a value from a Redis data storage.
         '''
         data = self._redis.get(key)
@@ -50,4 +54,4 @@ class Cache:
     def get_int(self, key: str) -> int:
         '''Retrieves an integer value from a Redis data storage.
         '''
-        return self.get(key, lambda x: int(x)) 
+        return self.get(key, lambda x: int(x))
