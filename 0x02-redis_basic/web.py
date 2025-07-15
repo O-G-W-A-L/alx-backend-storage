@@ -1,43 +1,54 @@
 #!/usr/bin/env python3
 """
-Caching request module
+This module provides a function to fetch web page content
+with Redis-based caching and URL access counting using decorators.
 """
+
+import redis
+import requests
 from functools import wraps
 from typing import Callable
-import requests
-import redis
+
+r = redis.Redis()
 
 
-def track_get_page(fn: Callable) -> Callable:
-    """Decorator for get_page"""
-
-    @wraps(fn)
+def count_url_access(method: Callable) -> Callable:
+    """Decorator to count how many times a URL is accessed."""
+    @wraps(method)
     def wrapper(url: str) -> str:
-        """Wrapper that:
-        - check whether a url's data is cached
-        - tracks how many times get_page is called
-        """
-        client = redis.Redis()
-        client.incr(f"count:{url}")
-        cached_page = client.get(f"{url}")
-        if cached_page:
-            return cached_page.decode("utf-8")
-        response = fn(url)
-        client.set(f"{url}", response, 10)
-        return response
-
+        r.incr(f"count:{url}")
+        return method(url)
     return wrapper
 
 
-@track_get_page
+def cache_page(expiration: int = 10) -> Callable:
+    """Decorator to cache page content in Redis for a given number of seconds."""
+    def decorator(method: Callable) -> Callable:
+        @wraps(method)
+        def wrapper(url: str) -> str:
+            cache_key = f"cache:{url}"
+            cached = r.get(cache_key)
+            if cached:
+                return cached.decode('utf-8')
+            result = method(url)
+            r.setex(cache_key, expiration, result)
+            return result
+        return wrapper
+    return decorator
+
+
+@cache_page(expiration=10)
+@count_url_access
 def get_page(url: str) -> str:
     """
+    Fetch the HTML content of a URL.
+
+    This version uses decorators for caching and counting.
+
     Args:
+        url: The URL to fetch.
 
-        url: url to get
     Returns:
-
-            the HTML content of the URL
+        The HTML content of the page.
     """
-    response = requests.get(url)
-    return response.text
+    return requests.get(url).text
