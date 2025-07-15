@@ -1,62 +1,43 @@
 #!/usr/bin/env python3
-"""Requesting web pages with Redis-based caching and tracking."""
-
-import redis
-import requests
+"""
+Caching request module
+"""
 from functools import wraps
 from typing import Callable
+import requests
+import redis
 
-# Initialize Redis connection
-r = redis.Redis()
 
+def track_get_page(fn: Callable) -> Callable:
+    """Decorator for get_page"""
 
-def cache_and_track(func: Callable) -> Callable:
-    """Decorator to cache URL response and track access count."""
-
-    @wraps(func)
+    @wraps(fn)
     def wrapper(url: str) -> str:
-        cache_key = f"cached:{url}"
-        count_key = f"count:{url}"
-
-        # Increment count regardless of cache hit or not
-        r.incr(count_key)
-
-        cached = r.get(cache_key)
-        if cached:
-            print("Cache hit")
-            return cached.decode('utf-8')
-
-        # Call the wrapped function to get fresh data
-        result = func(url)
-
-        # Cache for 10 seconds
-        r.setex(cache_key, 10, result)
-        print("Cache set")
-
-        return result
+        """Wrapper that:
+        - check whether a url's data is cached
+        - tracks how many times get_page is called
+        """
+        client = redis.Redis()
+        client.incr(f"count:{url}")
+        cached_page = client.get(f"{url}")
+        if cached_page:
+            return cached_page.decode("utf-8")
+        response = fn(url)
+        client.set(f"{url}", response, 10)
+        return response
 
     return wrapper
 
 
-@cache_and_track
+@track_get_page
 def get_page(url: str) -> str:
-    """Fetch HTML content of a URL using requests."""
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        return response.text
-    except requests.exceptions.RequestException as e:
-        return f"An error occurred: {e}"
+    """
+    Args:
 
+        url: url to get
+    Returns:
 
-if __name__ == "__main__":
-    # Test URL
-    test_url = "http://slowwly.robertomurray.co.uk"
-
-    # Fetch page
-    print(get_page(test_url))
-
-    # Show how many times this URL has been accessed
-    count = r.get(f"count:{test_url}")
-    if count:
-        print(count.decode('utf-8'))
+            the HTML content of the URL
+    """
+    response = requests.get(url)
+    return response.text
